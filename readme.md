@@ -1,95 +1,138 @@
-# Pace
+<p align="center">
+    <img src="docs/logo.svg" width="96" alt="Pace logo — a green dumbbell"/>
+</p>
 
-Workout logging web app built with Flask + Postgres. Users track workouts, exercises, and weight progression.
+<h1 align="center">Pace</h1>
+
+<p align="center">
+    A self-hosted workout tracker where every set is the source of truth.<br>
+    Muscle-map, tags, and progression charts — your data, your server. ⚡
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-blue.svg">
+  <img alt="Flask" src="https://img.shields.io/badge/built%20with-Flask-000000.svg?logo=flask">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-4169E1.svg?logo=postgresql">
+</p>
+
+---
+
+## Why Pace
+
+Most fitness apps average your work away, lock your history in their
+cloud, and hide the data model. Pace does the opposite:
+
+- **Every set is a row.** Resistance work logs real per-set rows (weight × reps); endurance and HIIT log one row per interval (duration + distance). Progression charts are computed from the actual sets you did — never an averaged summary.
+- **Your data lives in your Postgres.** Pace runs on your own server, on your own database. No third-party cloud, no export gate, no account you can lose.
+- **The muscle map tells you the truth.** It's the first thing you see when you open the app, and regions you haven't trained in a while pulse — a built-in answer to "what have I been neglecting?"
+- **Exercises are classified three ways, not one rigid category:** how you log it (metric type), what it is (tags), and which muscles it hits (body regions).
+- **Units stay honest.** lb/kg for weights and mi/km for distance, with kg values normalized underneath so mixed-unit history still charts correctly.
 
 ## Features
 
-- Installable PWA: manifest + service worker, launches straight to the home/log screen, persistent login (Flask-Login remember-me).
-- Home screen has a tappable front/back muscle-map picker (`body-highlighter`) — tap regions to narrow a shortlist of your own exercises (prioritized) plus unlogged suggestions sourced from wger (de-emphasized), each with a preview image. Regions you haven't trained in a while pulse (white → grey → black → hold, repeating) so the map doubles as a "what needs work" prompt. A Strength/Cardio switch in the map's header (`home.js`) jumps straight to the add-exercise form pre-set to "Time & distance" + the Cardio tag, since a timed activity has no regions to tap.
-- Exercises are classified along three independent axes, not one rigid category:
-  - **metric_type** (`metric-type-picker.js`) — *how you log it*: "Weights & reps" (resistance: weight × reps per set) or "Time & distance" (endurance: duration + optional distance per interval, one row per interval so HIIT/intervals get several). One per exercise; drives which fields the form shows.
-  - **tags** (`tag-picker.js`) — *what it is*, a curated multi-select (Cardio, Strength, Mobility, Plyometrics, Agility, Balance, Core, Power, Endurance, Steady state, HIIT, Intervals, Sprints — `utils/tags.py`). Many per exercise, e.g. badminton = `[Cardio, Agility, Plyometrics]`, so "minutes of cardio this week" can sum durations across every tagged exercise regardless of what it's called. Optional — untagged exercises log fine, they just won't surface in tag-based rollups.
-  - **body regions** (`region-picker.js`) — *which muscles*, unchanged: tap in priority order, unlimited regions. Resistance exercises only; endurance clears any region tags since a run shouldn't count toward muscle freshness.
-- Workouts per day with multiple exercises, each logged as real per-set/per-interval rows (weight × reps, or duration + distance — not an averaged summary).
-- Exercise catalog per user — rename/merge templates from the "Manage exercises" account page, which shows each template's metric type, tags, and regions.
-- Weight tracking with lb/kg support and normalized kg values; distance tracking with mi/km support.
-- Stats dashboard with calendar view and region/exercise progression charts.
+**Logging**
 
-## Data model overview
+- Workouts per day, multiple exercises per workout.
+- Resistance: per-set weight × reps rows.
+- Endurance/HIIT: per-interval duration + optional distance rows, so interval sessions get one row per interval.
+- lb/kg and mi/km support; weight values normalized to kg for consistent progression.
 
-- `app_user`: account data, weight unit preference, week start.
-- `workout`: date, user_id, optional notes.
-- `exercise_catalog`: user-specific exercise names/templates, with `metric_type` (resistance/endurance) driving which fields a logged entry populates.
-- `tag`: fixed, non-user-editable descriptive vocabulary (seeded from `utils/tags.py`).
-- `exercise_catalog_tag`: which tags apply to a catalog entry (many-to-many, unordered) — the "what is this" classification, independent of metric_type and regions.
-- `exercise`: logged entries with optional `exercise_name` and `exercise_catalog_id`; `weight_used`/`num_of_sets`/`avg_reps`/`max_reps`/`total_duration_seconds`/`total_distance`/`distance_unit` are derived rollups for quick-list display, not the source of truth.
-- `exercise_set`: per-set weight/reps (resistance) or per-interval duration/distance (endurance) rows — the actual source of truth for volume, progression, and per-set/interval display. A given exercise only ever populates one pair, per its catalog `metric_type`.
-- `body_region`: fixed, non-user-editable anatomical regions for the muscle-map (seeded from `utils/body_regions.py`, keyed to `body-highlighter`'s SVG).
-- `exercise_catalog_region`: which regions a given catalog exercise hits, with a `rank` (1 = primary, 2 = secondary, ...) set by tap order in the picker. Resistance exercises only — endurance entries carry no region tags.
-- `suggested_exercise` / `suggested_exercise_region`: unlogged exercises imported from wger.de (CC-BY-SA), shown below your own history in the region shortlist.
+**The muscle map**
 
-## Setup
+- Tappable front/back body map narrows a shortlist of your own exercises plus fresh suggestions for the region you tapped.
+- Regions you haven't trained in a while pulse — the map doubles as a "what needs work" prompt. [How the map works →](docs/MUSCLE_MAP.md)
+- A Strength/Cardio switch jumps straight to the cardio form, since a timed activity has no regions to tap.
 
-1) Install dependencies:
-```
+**Three-axis exercise classification**
+
+- **Metric type** — *how you log it*: "Weights & reps" or "Time & distance". Drives which fields the logging form shows.
+- **Tags** — *what it is*: a curated multi-select (Cardio, Strength, HIIT, Plyometrics, …). Many per exercise — badminton is Cardio + Agility + Plyometrics — so tag-based rollups sum correctly across differently-named exercises. Optional; untagged exercises log fine.
+- **Body regions** — *which muscles*: tap in priority order, unlimited regions. Resistance exercises only, so a run never counts toward muscle freshness.
+
+**Your own exercise catalog**
+
+- Exercises are per-user templates. Rename or merge them from the "Manage exercises" page, which shows each one's metric type, tags, and regions.
+- As-you-type suggestions pull from your catalog with last-logged date and last sets; unknown names are created on save.
+- Optional suggestions from [wger.de](https://wger.de) (CC-BY-SA) with preview images, shown only for regions you haven't covered with your own history.
+
+**Stats**
+
+- Dashboard with a calendar view and per-region / per-exercise progression charts, computed from per-set data.
+
+**Import & install**
+
+- Legacy JSON import (see below).
+- Installable PWA: launches straight to the home/log screen with persistent login.
+
+## Quick start
+
+Self-host in under five minutes. You need **Python 3.10+** and **PostgreSQL**.
+
+```bash
+# 1. Clone and install
+git clone https://github.com/manzar-shahaan/workoutguide.git
+cd workoutguide
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-```
 
-2) Configure the database:
-- Default `DATABASE_URL` is in `app/db/connection.py`.
-- Use a Postgres URL like:
-```
-postgresql+psycopg2://user:password@localhost:5432/workoutguide
-```
+# 2. Get a Postgres database running (docker-compose.yml ships one:
+#    Postgres 16, user/pass/db = workoutguide, port 5432, persistent volume)
+docker compose up -d
 
-3) Initialize schema:
-```
+# 3. Create the schema
 python scripts/init_db.py
-```
 
-4) Run the app:
-```
+# 4. Create a signup code, then start the app
+python scripts/generate_access_code.py "me"
 python run.py
 ```
 
-## Migrations and scripts
+Open http://localhost:5001, sign up with the access code, and log your first workout.
 
-- `scripts/migrate_exercise_real.py`: adds weight unit columns and backfills kg.
-- `scripts/migrate_exercise_catalog.py`: adds exercise catalog table and links on exercise. Superseded by `schema.sql` for fresh installs; kept as a historical record for existing DBs that predate it.
-- `scripts/migrate_body_regions.py`: adds `body_region`/`exercise_catalog_region`/`suggested_exercise*` tables and seeds the 17 regions. Run this once on an existing DB.
-- `scripts/import_wger_exercises.py`: pulls exercises from the public wger.de API into `suggested_exercise`, mirrors a small preview image for each locally. Re-runnable/idempotent (`--max N` to test with a small batch first).
-- `scripts/backfill_exercise_regions.py`: fuzzy-matches existing `exercise_catalog` rows (logged before the muscle-map existed) against `suggested_exercise` to tag them with regions. Run after the two scripts above; re-runnable.
-- `scripts/migrate_exercise_sets.py`: adds `exercise_set` and backfills per-set rows from each exercise's rollup columns (num_of_sets rows at avg_reps, peak set bumped to max_reps). Re-runnable, no-op for exercises that already have set rows.
-- `scripts/migrate_region_rank.py`: converts `exercise_catalog_region.role` (text, capped at primary/secondary) to `rank` (integer, unlimited regions per exercise). Re-runnable.
-- `scripts/migrate_modality.py`: adds `exercise_catalog.modality`/`cardio_target`, backfills modality from the old muscle category, makes `muscle_id` nullable, and tightens the catalog's unique constraint to `(user_id, name)`. Refuses to tighten the constraint if it finds the same exercise name under two different muscles — resolve those first. Superseded by `migrate_tags.py` + `migrate_drop_modality.py`; kept as a historical record for existing DBs that predate the tag split. Re-runnable.
-- `scripts/migrate_drop_muscle.py`: drops `exercise_catalog.muscle_id`, `exercise_muscle`, and `muscle` entirely. Run any time after `migrate_modality.py` has been applied and the app has been running on the region/modality model — nothing reads these anymore. Re-runnable.
-- `scripts/migrate_cardio_sets.py`: adds `exercise_set.duration_seconds`/`distance`/`distance_unit` (per interval) and `exercise.total_duration_seconds`/`total_distance`/`distance_unit` (rollups), and drops the stale `NOT NULL` on `exercise.weight_unit` (endurance rows have no weight unit). Re-runnable.
-- `scripts/migrate_tags.py`: Phase 1 of the modality → metric_type + tags split. Adds the `tag`/`exercise_catalog_tag` tables (seeded from `utils/tags.py`) and `exercise_catalog.metric_type`, then backfills `metric_type` + tags from the old `modality`/`cardio_target` columns (cardio → endurance + `[cardio]` tag, cardio_target folded in as its own tag, e.g. `[cardio, hiit]`). Safe to run before any UI change. Re-runnable — the backfill step is skipped once `migrate_drop_modality.py` has run.
-- `scripts/migrate_drop_modality.py`: Phase 3 — drops `exercise_catalog.modality`/`cardio_target` entirely. Run only after `migrate_tags.py` has been applied and the app has been running on metric_type + tags. Re-runnable.
-- `scripts/report_tagging_status.py`: read-only report of `exercise_catalog` classification — resistance exercises missing body-region tags (actionable, since those won't show up in the muscle-map shortlist), plus an informational count of exercises with no descriptive tags (tags are optional, so this isn't a problem to fix, just visibility).
-- `scripts/seed_sample_data.py`: optional seed data (tags regions on resistance exercises, `[cardio]` + duration/distance on endurance ones).
-- `scripts/smoke_db.py`: quick DB connectivity check.
+- The default connection string is
+  `postgresql+psycopg2://workoutguide:workoutguide@localhost:5432/workoutguide`
+  (`app/db/connection.py`). Running your own Postgres? Set `DATABASE_URL` to your
+  own URL instead of using the bundled compose file.
+- `SECRET_KEY` defaults to a dev value; set it in production.
+- Prefer bare Postgres over Docker? Any recent PostgreSQL works — the compose
+  file is just the fastest path.
 
-## Legacy import
+## Importing old workouts
 
-Importer supports multiple JSON shapes (array, object, or NDJSON) and normalizes into a canonical workout format. It can parse weight values with lb/kg suffixes and extract exercise names from notes. Legacy free-text muscle names can't be reliably mapped onto the fixed region taxonomy (e.g. "arms" alone doesn't say biceps vs. triceps vs. forearm), so imported exercises land untagged by region and get body-map tags later via the add/edit form — the one exception is a legacy "cardio" muscle bucket, which is recognized and classified as `metric_type=endurance` + a `[cardio]` tag automatically.
+Moving history from another tracker or a plain JSON export:
 
-Example:
-```
+```bash
 python scripts/import_legacy.py --path legacy.json --user-id 1 --dry-run --report import_report.json
 ```
 
-Options:
-- `--unit`: default unit when missing (`lb` or `kg`).
-- `--tz`: timezone for datetime normalization.
-- `--strict`: fail on invalid values instead of skipping.
-- `--dedupe`: skip duplicate exercises on re-import.
-- `--source`: force `legacy`, `generic`, or `auto`.
+`--path` points at your JSON file (array, object, or NDJSON — all handled), `--user-id` is your Pace user, `--dry-run` previews without writing, and `--report` writes a JSON report of what would happen. Run it without `--dry-run` when the preview looks right. All options (`--unit`, `--tz`, `--strict`, `--dedupe`, `--source`) are documented in [docs/SCRIPTS.md](docs/SCRIPTS.md).
 
-## Exercise suggestions
+## Database setup & migrations
 
-Exercise entry uses a free-text field. As you type, suggestions are pulled from your full exercise catalog (name, last-logged date, last sets) and the total count of stored exercises is shown. If the name does not exist, it is created on save.
+- **Fresh install:** `python scripts/init_db.py` applies the full schema from `app/db/schema.sql`. That's it — no migration scripts needed.
+- **Existing database** (predating `schema.sql`): run the migration scripts in order. Every one is idempotent.
+- Full per-script reference, including the recommended migration order: [docs/SCRIPTS.md](docs/SCRIPTS.md).
 
-## Notes
+## Data model
 
-Exercise `notes` remain intact and are not used as the primary exercise name. The `exercise_name` field is intended for clean cataloging and stats, while notes capture workout-specific details.
+The short version:
+
+| Table | What it holds |
+|-------|---------------|
+| `workout` | One day's session — date, optional notes. |
+| `exercise_catalog` | Your exercise templates: name, metric type, tags, regions. |
+| `exercise_set` | The source of truth: one row per set (weight × reps) or per interval (duration + distance). |
+| `tag` | Fixed descriptive vocabulary — Cardio, Strength, HIIT, Plyometrics, … |
+| `body_region` | Fixed anatomical regions backing the muscle map. |
+
+The full relational picture, including the derived-rollup rule and the junction tables: [docs/DATA_MODEL.md](docs/DATA_MODEL.md).
+
+## Contributing
+
+Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions. Please keep discussion friendly; the [Code of Conduct](CODE_OF_CONDUCT.md) applies.
+
+## License
+
+[AGPL-3.0](LICENSE). Free to self-host, use, and modify. If you run a modified version of Pace as a network service, you must offer its source to the people using it — that's the AGPL network clause, and it keeps Pace and its forks open no matter who runs them.
