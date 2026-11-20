@@ -71,8 +71,8 @@ Self-host in under five minutes. You need **Python 3.10+** and **PostgreSQL**.
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/manzar-shahaan/workoutguide.git
-cd workoutguide
+git clone https://github.com/manzar-shahaan/pace.git
+cd pace
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt

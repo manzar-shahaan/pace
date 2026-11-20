@@ -8,8 +8,8 @@ and covers the few conventions that matter.
 Same as the README's [Quick start](readme.md#quick-start):
 
 ```bash
-git clone https://github.com/manzar-shahaan/workoutguide.git
-cd workoutguide
+git clone https://github.com/manzar-shahaan/pace.git
+cd pace
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
